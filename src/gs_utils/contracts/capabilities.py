@@ -32,6 +32,15 @@ class Splat3DGS(Protocol):
 
 
 @runtime_checkable
+class ConfidenceBased3DGS(Splat3DGS, Protocol):
+    """Geometry contract for confidence-based 3D Gaussian splats."""
+
+    @property
+    def confidences(self) -> Float[Tensor, "num_splats"]:
+        """Confidences of the splats."""
+
+
+@runtime_checkable
 class Splat2DGS(Protocol):
     """Geometry contract for 2D Gaussian splats."""
 
