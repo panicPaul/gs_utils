@@ -23,14 +23,17 @@ def register_init_fn(
     """Register an initialization strategy under one or more names."""
 
     def decorator(init_fn: InitFn) -> InitFn:
-        for name in names:
-            registrations = INIT_FNS.setdefault(name, [])
-            if any(reg.scene_type == scene_type for reg in registrations):
+        for strategy_name in names:
+            strategy_registrations = INIT_FNS.setdefault(strategy_name, [])
+            if any(
+                registration.scene_type == scene_type
+                for registration in strategy_registrations
+            ):
                 raise ValueError(
-                    f"Duplicate initialization strategy for {name!r} and "
+                    f"Duplicate initialization strategy for {strategy_name!r} and "
                     f"{scene_type!r}."
                 )
-            registrations.append(
+            strategy_registrations.append(
                 InitRegistration(scene_type=scene_type, init_fn=init_fn)
             )
         return init_fn

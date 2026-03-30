@@ -108,13 +108,17 @@ class RenderInput:
         if self._cached_intrinsics is not None:
             return self._cached_intrinsics
 
-        fov = self.get_fov()
-        focal = 0.5 * self.height / torch.tan(fov / 2.0)
-        intrinsics = torch.zeros(
-            (*fov.shape, 3, 3), dtype=fov.dtype, device=fov.device
+        vertical_field_of_view = self.get_fov()
+        focal_length = (
+            0.5 * self.height / torch.tan(vertical_field_of_view / 2.0)
         )
-        intrinsics[..., 0, 0] = focal
-        intrinsics[..., 1, 1] = focal
+        intrinsics = torch.zeros(
+            (*vertical_field_of_view.shape, 3, 3),
+            dtype=vertical_field_of_view.dtype,
+            device=vertical_field_of_view.device,
+        )
+        intrinsics[..., 0, 0] = focal_length
+        intrinsics[..., 1, 1] = focal_length
         intrinsics[..., 0, 2] = self.width / 2.0
         intrinsics[..., 1, 2] = self.height / 2.0
         intrinsics[..., 2, 2] = 1.0
@@ -140,24 +144,26 @@ class RenderInput:
         if self._cached_fov is not None:
             return self._cached_fov
 
-        intrinsics = self.intrinsics
-        if intrinsics is None:
+        intrinsics_matrix = self.intrinsics
+        if intrinsics_matrix is None:
             raise ValueError("RenderInput requires intrinsics or fov.")
-        fov = 2.0 * torch.atan(
+        vertical_field_of_view = 2.0 * torch.atan(
             torch.tensor(
-                self.height, dtype=intrinsics.dtype, device=intrinsics.device
+                self.height,
+                dtype=intrinsics_matrix.dtype,
+                device=intrinsics_matrix.device,
             )
-            / (2.0 * intrinsics[..., 1, 1])
+            / (2.0 * intrinsics_matrix[..., 1, 1])
         )
-        object.__setattr__(self, "_cached_fov", fov)
-        return fov
+        object.__setattr__(self, "_cached_fov", vertical_field_of_view)
+        return vertical_field_of_view
 
 
 @dataclass(slots=True)
 class RenderOutput:
     """Canonical scene render output."""
 
-    rgb: Float[torch.Tensor, "height width 3"]
+    image: Float[torch.Tensor, "height width 3"]
     depth: Float[torch.Tensor, "height width 1"] | None = None
     normals: Float[torch.Tensor, "height width 3"] | None = None
     alpha: Float[torch.Tensor, "height width 1"] | None = None

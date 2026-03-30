@@ -83,6 +83,12 @@ def compute_knn_log_scales(
     points: torch.Tensor, config: InitializationConfig, dims: int
 ) -> torch.Tensor:
     """Compute KNN-based log-scales with the requested output dimensionality."""
-    dist2_avg = (knn(points.detach(), 4)[:, 1:] ** 2).mean(dim=-1)
-    dist_avg = torch.sqrt(dist2_avg)
-    return torch.log(dist_avg * config.init_scale).unsqueeze(-1).repeat(1, dims)
+    average_squared_neighbor_distance = (
+        knn(points.detach(), 4)[:, 1:] ** 2
+    ).mean(dim=-1)
+    average_neighbor_distance = torch.sqrt(average_squared_neighbor_distance)
+    return (
+        torch.log(average_neighbor_distance * config.init_scale)
+        .unsqueeze(-1)
+        .repeat(1, dims)
+    )

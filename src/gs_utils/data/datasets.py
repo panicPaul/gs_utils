@@ -196,21 +196,41 @@ class ParsedSceneDataset(Dataset[DataSample]):
         intrinsics[1, :] *= scale_y
 
         if self.patch_size is not None:
-            h, w = image.shape[:2]
-            rng = get_numpy_rng()
-            x = int(rng.integers(0, max(w - self.patch_size, 1)))
-            y = int(rng.integers(0, max(h - self.patch_size, 1)))
-            image = image[y : y + self.patch_size, x : x + self.patch_size]
+            image_height, image_width = image.shape[:2]
+            random_number_generator = get_numpy_rng()
+            crop_start_x = int(
+                random_number_generator.integers(
+                    0,
+                    max(image_width - self.patch_size, 1),
+                )
+            )
+            crop_start_y = int(
+                random_number_generator.integers(
+                    0,
+                    max(image_height - self.patch_size, 1),
+                )
+            )
+            image = image[
+                crop_start_y : crop_start_y + self.patch_size,
+                crop_start_x : crop_start_x + self.patch_size,
+            ]
             if mask is not None:
-                mask = mask[y : y + self.patch_size, x : x + self.patch_size]
+                mask = mask[
+                    crop_start_y : crop_start_y + self.patch_size,
+                    crop_start_x : crop_start_x + self.patch_size,
+                ]
             if depth is not None:
-                depth = depth[y : y + self.patch_size, x : x + self.patch_size]
+                depth = depth[
+                    crop_start_y : crop_start_y + self.patch_size,
+                    crop_start_x : crop_start_x + self.patch_size,
+                ]
             if normals is not None:
                 normals = normals[
-                    y : y + self.patch_size, x : x + self.patch_size
+                    crop_start_y : crop_start_y + self.patch_size,
+                    crop_start_x : crop_start_x + self.patch_size,
                 ]
-            intrinsics[0, 2] -= x
-            intrinsics[1, 2] -= y
+            intrinsics[0, 2] -= crop_start_x
+            intrinsics[1, 2] -= crop_start_y
 
         image_tensor = torch.from_numpy(image).float()
         mask_tensor = None if mask is None else torch.from_numpy(mask).bool()

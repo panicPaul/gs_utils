@@ -17,15 +17,15 @@ def initialize_scene(
     scene_scale: float = 1.0,
 ) -> None:
     """Initialize a scene in place based on its geometry contract."""
-    registrations = INIT_FNS.get(config.strategy)
-    if registrations is None:
+    strategy_registrations = INIT_FNS.get(config.strategy)
+    if strategy_registrations is None:
         raise ValueError(
             f"Unsupported initialization strategy: {config.strategy}"
         )
     context = InitContext(point_cloud=point_cloud, scene_scale=scene_scale)
-    for registration in registrations:
-        if isinstance(scene, registration.scene_type):
-            registration.init_fn(scene, config, context)
+    for strategy_registration in strategy_registrations:
+        if isinstance(scene, strategy_registration.scene_type):
+            strategy_registration.init_fn(scene, config, context)
             return
     raise TypeError(
         f"Initialization strategy {config.strategy!r} does not support "

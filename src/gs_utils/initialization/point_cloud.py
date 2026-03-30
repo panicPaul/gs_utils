@@ -21,8 +21,10 @@ def init_3dgs_from_point_cloud(
     """Initialize a 3DGS scene from a point cloud."""
     points, colors = point_cloud_inputs(context.point_cloud, scene.means.device)
     init_common_from_points(scene, points, colors, config)
-    scene.log_scales.data = compute_knn_log_scales(points, config, dims=3).to(
-        device=scene.log_scales.device, dtype=scene.log_scales.dtype
+    computed_log_scales = compute_knn_log_scales(points, config, dims=3)
+    scene.log_scales.data = computed_log_scales.to(
+        device=scene.log_scales.device,
+        dtype=scene.log_scales.dtype,
     )
 
 
@@ -35,6 +37,8 @@ def init_2dgs_from_point_cloud(
     """Initialize a 2DGS scene from a point cloud."""
     points, colors = point_cloud_inputs(context.point_cloud, scene.means.device)
     init_common_from_points(scene, points, colors, config)
-    scene.log_scales.data = compute_knn_log_scales(points, config, dims=2).to(
-        device=scene.log_scales.device, dtype=scene.log_scales.dtype
+    computed_log_scales = compute_knn_log_scales(points, config, dims=2)
+    scene.log_scales.data = computed_log_scales.to(
+        device=scene.log_scales.device,
+        dtype=scene.log_scales.dtype,
     )

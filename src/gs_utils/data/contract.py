@@ -11,6 +11,7 @@ from gs_utils.contracts import RenderInput
 
 
 def _identity_transform() -> Float[Tensor, "4 4"]:
+    """Return the default identity normalization transform."""
     return torch.eye(4, dtype=torch.float32)
 
 

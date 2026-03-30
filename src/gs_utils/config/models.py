@@ -35,6 +35,19 @@ class SceneConfig(_ConfigModel):
     device: str = "cuda"
 
 
+class ViewDependentColorMLPConfig(_ConfigModel):
+    embed_dim: int = 16
+    max_sh_degree: int = 3
+    mlp_width: int = 64
+    mlp_depth: int = 2
+
+
+class PPISPComponentConfig(_ConfigModel):
+    use_controller: bool = True
+    controller_distillation: bool = True
+    controller_activation_ratio: float = 1.0
+
+
 class InitializationConfig(_ConfigModel):
     strategy: Literal["sfm", "random", "point_cloud", "checkpoint"] = "sfm"
     checkpoint_path: Path | None = None

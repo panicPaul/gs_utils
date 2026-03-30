@@ -19,14 +19,20 @@ def init_random_3dgs(
     context: InitContext,
 ) -> None:
     """Initialize a 3DGS scene from randomly sampled points."""
-    points = random_points(
+    random_point_positions = random_points(
         config.init_num_points,
         config.init_extent * context.scene_scale,
         scene.means.device,
     )
-    init_common_from_points(scene, points, None, config)
-    scene.log_scales.data = compute_knn_log_scales(points, config, dims=3).to(
-        device=scene.log_scales.device, dtype=scene.log_scales.dtype
+    init_common_from_points(scene, random_point_positions, None, config)
+    computed_log_scales = compute_knn_log_scales(
+        random_point_positions,
+        config,
+        dims=3,
+    )
+    scene.log_scales.data = computed_log_scales.to(
+        device=scene.log_scales.device,
+        dtype=scene.log_scales.dtype,
     )
 
 
@@ -37,12 +43,18 @@ def init_random_2dgs(
     context: InitContext,
 ) -> None:
     """Initialize a 2DGS scene from randomly sampled points."""
-    points = random_points(
+    random_point_positions = random_points(
         config.init_num_points,
         config.init_extent * context.scene_scale,
         scene.means.device,
     )
-    init_common_from_points(scene, points, None, config)
-    scene.log_scales.data = compute_knn_log_scales(points, config, dims=2).to(
-        device=scene.log_scales.device, dtype=scene.log_scales.dtype
+    init_common_from_points(scene, random_point_positions, None, config)
+    computed_log_scales = compute_knn_log_scales(
+        random_point_positions,
+        config,
+        dims=2,
+    )
+    scene.log_scales.data = computed_log_scales.to(
+        device=scene.log_scales.device,
+        dtype=scene.log_scales.dtype,
     )
