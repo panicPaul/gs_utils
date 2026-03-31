@@ -28,8 +28,8 @@ import torch
 from PIL import Image
 from tqdm import tqdm
 
-from gs_utils.utils.random import get_numpy_rng
 from gs_utils.utils.exif import compute_exposure_from_exif
+from gs_utils.utils.random import get_numpy_rng
 
 from .normalize import (
     align_principal_axes,

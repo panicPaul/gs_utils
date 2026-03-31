@@ -41,7 +41,10 @@ def build_append_zero_optimizer_state_factory(
             [
                 optimizer_state_tensor,
                 torch.zeros(
-                    (selected_indices.numel(), *optimizer_state_tensor.shape[1:]),
+                    (
+                        selected_indices.numel(),
+                        *optimizer_state_tensor.shape[1:],
+                    ),
                     device=optimizer_state_tensor.device,
                 ),
             ]
@@ -85,7 +88,9 @@ def build_keep_selected_optimizer_state_factory(
     return keep_selected_optimizer_state_rows
 
 
-def build_zero_optimizer_state_factory() -> Callable[[str, torch.Tensor], torch.Tensor]:
+def build_zero_optimizer_state_factory() -> Callable[
+    [str, torch.Tensor], torch.Tensor
+]:
     """Return a factory that zeros an optimizer-state tensor in place shape-wise."""
 
     def zero_optimizer_state(
@@ -104,7 +109,9 @@ def remap_parameters_and_optimizer_state(
     parameters_by_name: dict[str, nn.Parameter],
     optimizers_by_parameter_name: dict[str, Optimizer],
     updated_parameter_factory: Callable[[str, torch.Tensor], nn.Parameter],
-    updated_optimizer_state_factory: Callable[[str, torch.Tensor], torch.Tensor],
+    updated_optimizer_state_factory: Callable[
+        [str, torch.Tensor], torch.Tensor
+    ],
     parameter_names: tuple[str, ...] | None = None,
 ) -> dict[str, nn.Parameter]:
     """Apply a shared remap to parameters and their optimizer state."""
@@ -129,7 +136,10 @@ def remap_parameters_and_optimizer_state(
         if current_parameter in optimizer.state:
             del optimizer.state[current_parameter]
         updated_optimizer_state: dict[str, torch.Tensor | int] = {}
-        for optimizer_state_name, optimizer_state_value in optimizer_state.items():
+        for (
+            optimizer_state_name,
+            optimizer_state_value,
+        ) in optimizer_state.items():
             if optimizer_state_name == "step":
                 updated_optimizer_state[optimizer_state_name] = (
                     optimizer_state_value

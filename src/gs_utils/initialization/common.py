@@ -24,8 +24,6 @@ class InitContext:
     point_cloud: PointCloud | None = None
     scene_scale: float = 1.0
 
-
-InitFn = Callable[[Scene, InitializationConfig, InitContext], None]
 InitScene = Splat3DGS | Splat2DGS
 InitFn = Callable[[InitScene, InitializationConfig, InitContext], None]
 
@@ -82,9 +80,13 @@ def init_common_from_points(
     if colors is not None and isinstance(
         scene, SphericalHarmonics3DGS | SphericalHarmonics2DGS
     ):
-        scene.sh_0.data = rgb_to_sh(colors).unsqueeze(1).to(
-            device=scene.sh_0.device,
-            dtype=scene.sh_0.dtype,
+        scene.sh_0.data = (
+            rgb_to_sh(colors)
+            .unsqueeze(1)
+            .to(
+                device=scene.sh_0.device,
+                dtype=scene.sh_0.dtype,
+            )
         )
         scene.sh_N.data.zero_()
 

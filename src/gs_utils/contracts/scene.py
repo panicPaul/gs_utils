@@ -9,8 +9,9 @@ import torch.nn as nn
 from pydantic import BaseModel
 
 from gs_utils.contracts.capabilities import RendersRGB
-from gs_utils.data.contract import PointCloud
 from gs_utils.contracts.render import RenderInput, RenderMode, RenderOutput
+from gs_utils.data.contract import PointCloud
+from gs_utils.initialization.config import InitializationConfig
 
 ConfigT = TypeVar("ConfigT", bound=BaseModel)
 OptimizerT = TypeVar("OptimizerT", bound=torch.optim.Optimizer)
@@ -64,40 +65,16 @@ class Scene(
 
     def initialize(
         self,
-        config: BaseModel,
+        config: InitializationConfig,
         point_cloud: PointCloud | None = None,
         scene_scale: float = 1.0,
     ) -> None:
         """Initialize the scene through the shared initialization registry."""
         from gs_utils.initialization.api import initialize_scene
-        from gs_utils.initialization.config import (
-            InitializationConfig as SharedInitializationConfig,
-        )
-
-        if isinstance(config, SharedInitializationConfig):
-            initialization_config = config
-        elif hasattr(config, "method") and hasattr(config, "config"):
-            method_name = getattr(config, "method")
-            method_config = getattr(config, "config")
-            if not isinstance(method_name, str):
-                raise TypeError("Initialization method must be a string.")
-            if not isinstance(method_config, BaseModel):
-                raise TypeError(
-                    "Initialization config payload must be a pydantic model."
-                )
-            initialization_config = SharedInitializationConfig(
-                strategy=method_name,
-                **method_config.model_dump(),
-            )
-        else:
-            raise TypeError(
-                "Initialization config must be a shared initialization config "
-                "or an example wrapper with `method` and `config` fields."
-            )
 
         initialize_scene(
             self,
-            initialization_config,
+            config,
             point_cloud=point_cloud,
             scene_scale=scene_scale,
         )

@@ -145,9 +145,7 @@ class RenderInput:
             self,
             cam_to_world=self.cam_to_world.to(device),
             intrinsics=(
-                None
-                if self.intrinsics is None
-                else self.intrinsics.to(device)
+                None if self.intrinsics is None else self.intrinsics.to(device)
             ),
             fov=(
                 None
@@ -159,9 +157,7 @@ class RenderInput:
                 )
             ),
             background=(
-                None
-                if self.background is None
-                else self.background.to(device)
+                None if self.background is None else self.background.to(device)
             ),
         )
 

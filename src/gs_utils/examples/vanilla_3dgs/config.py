@@ -7,6 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from gs_utils.data.config import DatasetConfig, DataSourceConfig
 from gs_utils.initialization.api import INIT_FNS
+from gs_utils.initialization.config import (
+    InitializationConfig as SharedInitializationConfig,
+)
 
 
 class _ConfigModel(BaseModel):
@@ -91,15 +94,11 @@ class DensificationConfig(_ConfigModel):
         )
         self.refinement_pause_after_opacity_reset = max(
             0,
-            round(
-                self.refinement_pause_after_opacity_reset * scale_factor
-            ),
+            round(self.refinement_pause_after_opacity_reset * scale_factor),
         )
         self.screen_space_refinement_stop_iteration = max(
             0,
-            round(
-                self.screen_space_refinement_stop_iteration * scale_factor
-            ),
+            round(self.screen_space_refinement_stop_iteration * scale_factor),
         )
         self.reference_training_steps = new_max_steps
 
@@ -163,12 +162,18 @@ class InitializationConfig(_ConfigModel):
             )
         return self
 
+    def to_shared_initialization_config(self) -> SharedInitializationConfig:
+        """Convert the example initialization wrapper to the shared init config."""
+        return SharedInitializationConfig(
+            strategy=self.method,
+            **self.config.model_dump(),
+        )
+
 
 class TrainingConfig(_ConfigModel):
-    """Top-level configuration for the vanilla 3DGS training entrypoint."""
+    """Training-loop configuration for the vanilla 3DGS example."""
 
     result_dir: Path = Path("results/vanilla_3dgs")
-    overwrite: bool = False
     seed: int = 42
     device: str = "cuda"
     max_steps: int = 30_000
@@ -178,7 +183,30 @@ class TrainingConfig(_ConfigModel):
     persistent_workers: bool = True
     log_every: int = 100
     eval_every: int = 1_000
-    save_every: int = 1_000
+    save_at_steps: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_training_config(self) -> "TrainingConfig":
+        """Validate the training-loop configuration."""
+        if self.max_steps <= 0:
+            raise ValueError("max_steps must be positive.")
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be positive.")
+        if self.num_workers < 0:
+            raise ValueError("num_workers must be non-negative.")
+        if self.log_every <= 0:
+            raise ValueError("log_every must be positive.")
+        if self.eval_every <= 0:
+            raise ValueError("eval_every must be positive.")
+        if any(save_step <= 0 for save_step in self.save_at_steps):
+            raise ValueError("save_at_steps must contain only positive steps.")
+        self.save_at_steps = sorted(set(self.save_at_steps))
+        return self
+
+
+class Config(_ConfigModel):
+    """Top-level configuration for the vanilla 3DGS example."""
+
     data: DataSourceConfig
     train_dataset: DatasetConfig = Field(
         default_factory=lambda: DatasetConfig(split="train")
@@ -191,22 +219,11 @@ class TrainingConfig(_ConfigModel):
         default_factory=DensificationConfig
     )
     optimization: OptimizationConfig = Field(default_factory=OptimizationConfig)
+    training: TrainingConfig = Field(default_factory=TrainingConfig)
 
     @model_validator(mode="after")
-    def validate_training_config(self) -> "TrainingConfig":
-        """Validate the trainer config and synchronize scheduler horizons."""
-        if self.max_steps <= 0:
-            raise ValueError("max_steps must be positive.")
-        if self.batch_size <= 0:
-            raise ValueError("batch_size must be positive.")
-        if self.num_workers < 0:
-            raise ValueError("num_workers must be non-negative.")
-        if self.log_every <= 0:
-            raise ValueError("log_every must be positive.")
-        if self.eval_every <= 0:
-            raise ValueError("eval_every must be positive.")
-        if self.save_every <= 0:
-            raise ValueError("save_every must be positive.")
-        self.optimization.scale_to_max_steps(self.max_steps)
-        self.densification.scale_to_max_steps(self.max_steps)
+    def scale_configs_to_training_horizon(self) -> "Config":
+        """Scale step-based configs to the configured training horizon."""
+        self.optimization.scale_to_max_steps(self.training.max_steps)
+        self.densification.scale_to_max_steps(self.training.max_steps)
         return self

@@ -1,7 +1,10 @@
 """Training script for the vanilla 3DGS scene."""
 
+from dataclasses import dataclass, field
+
 import torch
 import tyro
+from sympy.assumptions.handlers.calculus import _
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.image import (
     LearnedPerceptualImagePatchSimilarity,
@@ -10,6 +13,7 @@ from torchmetrics.image import (
 )
 from tqdm import tqdm
 
+from gs_utils.data.config import DatasetConfig, DataSourceConfig
 from gs_utils.data.datasets import (
     build_dataloader,
     get_dataset,
@@ -21,20 +25,29 @@ from gs_utils.utils.checkpoints import (
 )
 from gs_utils.utils.random import set_random_seed
 
-from .config import TrainingConfig
+from .config import (
+    Config,
+    DensificationConfig,
+    InitializationConfig,
+    OptimizationConfig,
+    TrainingConfig,
+)
 from .scene import Vanilla3DGS
 
 
-def train(config: TrainingConfig) -> None:
+def train(config: Config) -> None:
     """Run the first-pass vanilla 3DGS training loop."""
-    set_random_seed(config.seed)
-    prepare_run_directory(config.result_dir, config.overwrite)
-    save_config_yaml(config, config.result_dir / "config.yaml")
+    # Set up deterministic run state and persist the resolved config.
+    training_config = config.training
+    set_random_seed(training_config.seed)
+    save_config_yaml(config, training_config.result_dir / "config.yaml")
 
-    device = torch.device(config.device)
+    # Construct the scene on the requested device.
+    device = torch.device(training_config.device)
     scene = Vanilla3DGS()
     scene.to(device)
 
+    # Build the training and validation datasets and their loaders.
     train_dataset, point_cloud = get_dataset(
         source_config=config.data,
         dataset_config=config.train_dataset,
@@ -47,23 +60,24 @@ def train(config: TrainingConfig) -> None:
 
     train_loader = build_dataloader(
         train_dataset,
-        batch_size=config.batch_size,
+        batch_size=training_config.batch_size,
         shuffle=True,
-        num_workers=config.num_workers,
-        pin_memory=config.pin_memory,
-        persistent_workers=config.persistent_workers,
+        num_workers=training_config.num_workers,
+        pin_memory=training_config.pin_memory,
+        persistent_workers=training_config.persistent_workers,
     )
     validation_loader = build_dataloader(
         validation_dataset,
         batch_size=1,
         shuffle=False,
-        num_workers=max(1, config.num_workers // 2),
-        pin_memory=config.pin_memory,
-        persistent_workers=config.persistent_workers,
+        num_workers=max(1, training_config.num_workers // 2),
+        pin_memory=training_config.pin_memory,
+        persistent_workers=training_config.persistent_workers,
     )
 
+    # Initialize scene state, then create the optimizer and scheduler objects.
     scene.initialize(
-        config.init,
+        config.init.to_shared_initialization_config(),
         point_cloud=point_cloud,
         scene_scale=scene_scale,
     )
@@ -77,7 +91,8 @@ def train(config: TrainingConfig) -> None:
         config.optimization,
     )
 
-    writer = SummaryWriter(log_dir=config.result_dir / "tensorboard")
+    # Create logging and evaluation modules once for the full training run.
+    writer = SummaryWriter(log_dir=training_config.result_dir / "tensorboard")
     lpips_module = LearnedPerceptualImagePatchSimilarity(
         net_type="alex",
         normalize=True,
@@ -85,8 +100,10 @@ def train(config: TrainingConfig) -> None:
     ssim_module = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
     psnr_module = PeakSignalNoiseRatio(data_range=1.0).to(device)
 
+    # Run the training loop with periodic evaluation and checkpointing.
+    save_steps = set(training_config.save_at_steps)
     train_loader_iterator = iter(train_loader)
-    progress_bar = tqdm(range(1, config.max_steps + 1), desc="train")
+    progress_bar = tqdm(range(1, training_config.max_steps + 1), desc="train")
     for iteration in progress_bar:
         try:
             training_sample = next(train_loader_iterator)
@@ -101,10 +118,15 @@ def train(config: TrainingConfig) -> None:
             gt_image=training_sample.image,
             optimizers=optimizers,
             schedulers=schedulers,
-            logger=writer if iteration % config.log_every == 0 else None,
+            logger=writer
+            if iteration % training_config.log_every == 0
+            else None,
         )
 
-        if iteration % config.eval_every == 0 or iteration == config.max_steps:
+        if (
+            iteration % training_config.eval_every == 0
+            or iteration == training_config.max_steps
+        ):
             validation_metrics = scene.eval_loop(
                 iteration=iteration,
                 validation_loader=validation_loader,
@@ -120,21 +142,63 @@ def train(config: TrainingConfig) -> None:
                 }
             )
 
-        if iteration % config.save_every == 0 or iteration == config.max_steps:
+        if iteration in save_steps or iteration == training_config.max_steps:
             save_scene_checkpoint(
                 scene,
                 iteration,
-                config.result_dir / "checkpoints" / f"ckpt_{iteration:06d}.pt",
+                training_config.result_dir
+                / "checkpoints"
+                / f"ckpt_{iteration:06d}.pt",
             )
 
     writer.close()
 
 
-def main() -> None:
-    """Parse CLI args and run the vanilla 3DGS trainer."""
-    config = tyro.cli(TrainingConfig)
-    train(config)
+@dataclass
+class TrainCommand:
+    """Train the vanilla 3DGS example."""
+
+    data: DataSourceConfig
+    training: TrainingConfig = field(default_factory=TrainingConfig)
+    train_dataset: DatasetConfig = field(
+        default_factory=lambda: DatasetConfig(split="train")
+    )
+    val_dataset: DatasetConfig = field(
+        default_factory=lambda: DatasetConfig(split="val")
+    )
+    init: InitializationConfig = field(default_factory=InitializationConfig)
+    densification: DensificationConfig = field(
+        default_factory=DensificationConfig
+    )
+    optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
+    overwrite: bool = False
+    scale_steps_to: int | None = None
+
+    def __call__(self) -> None:
+        """Run the vanilla 3DGS training loop."""
+        resolved_training = (
+            self.training
+            if self.scale_steps_to is None
+            else self.training.model_copy(
+                update={"max_steps": self.scale_steps_to}
+            )
+        )
+
+        resolved_config = Config(
+            data=self.data,
+            train_dataset=self.train_dataset,
+            val_dataset=self.val_dataset,
+            init=self.init,
+            densification=self.densification,
+            optimization=self.optimization,
+            training=resolved_training,
+        )
+        prepare_run_directory(
+            resolved_config.training.result_dir,
+            self.overwrite,
+        )
+        train(resolved_config)
 
 
 if __name__ == "__main__":
-    main()
+    tyro.cli(TrainCommand)

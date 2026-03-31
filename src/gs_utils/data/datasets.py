@@ -305,10 +305,7 @@ def collate_render_inputs(render_inputs: list[RenderInput]) -> RenderInput:
 
     if reference_render_input.intrinsics is not None:
         intrinsics = torch.stack(
-            [
-                render_input.get_intrinsics()
-                for render_input in render_inputs
-            ],
+            [render_input.get_intrinsics() for render_input in render_inputs],
             dim=0,
         )
         fov = None
@@ -363,11 +360,7 @@ def collate_data_samples(batch: list[DataSample]) -> DataSample:
             None
             if reference_sample.mask is None
             else torch.stack(
-                [
-                    sample.mask
-                    for sample in batch
-                    if sample.mask is not None
-                ],
+                [sample.mask for sample in batch if sample.mask is not None],
                 dim=0,
             )
         ),
