@@ -22,6 +22,13 @@ class PointCloud:
     positions: Float[Tensor, "num_points 3"]
     colors: Float[Tensor, "num_points 3"] | None = None
 
+    def to(self, device: torch.device) -> "PointCloud":
+        """Move point-cloud tensors to the target device."""
+        return PointCloud(
+            positions=self.positions.to(device),
+            colors=None if self.colors is None else self.colors.to(device),
+        )
+
 
 @dataclass(slots=True)
 class SceneFrame:
@@ -57,12 +64,35 @@ class DataSample:
     mask: Bool[Tensor, "height width"] | None = None
     metadata: dict[str, object] = field(default_factory=dict)
 
+    def to(self, device: torch.device) -> "DataSample":
+        """Move tensor fields in the sample to the target device."""
+        return DataSample(
+            render_input=self.render_input.to(device),
+            image=self.image.to(device),
+            image_path=self.image_path,
+            camera_id=self.camera_id,
+            mask=None if self.mask is None else self.mask.to(device),
+            metadata=self.metadata,
+        )
+
 
 @dataclass(slots=True, kw_only=True)
 class DepthSample(DataSample):
     """Dataset sample with depth supervision."""
 
     depth: Float[Tensor, "height width 1"]
+
+    def to(self, device: torch.device) -> "DepthSample":
+        """Move tensor fields in the sample to the target device."""
+        return DepthSample(
+            render_input=self.render_input.to(device),
+            image=self.image.to(device),
+            image_path=self.image_path,
+            camera_id=self.camera_id,
+            mask=None if self.mask is None else self.mask.to(device),
+            metadata=self.metadata,
+            depth=self.depth.to(device),
+        )
 
 
 @dataclass(slots=True, kw_only=True)
@@ -71,9 +101,34 @@ class NormalSample(DataSample):
 
     normals: Float[Tensor, "height width 3"]
 
+    def to(self, device: torch.device) -> "NormalSample":
+        """Move tensor fields in the sample to the target device."""
+        return NormalSample(
+            render_input=self.render_input.to(device),
+            image=self.image.to(device),
+            image_path=self.image_path,
+            camera_id=self.camera_id,
+            mask=None if self.mask is None else self.mask.to(device),
+            metadata=self.metadata,
+            normals=self.normals.to(device),
+        )
+
 
 @dataclass(slots=True, kw_only=True)
 class DepthNormalSample(DepthSample):
     """Dataset sample with both depth and normal supervision."""
 
     normals: Float[Tensor, "height width 3"]
+
+    def to(self, device: torch.device) -> "DepthNormalSample":
+        """Move tensor fields in the sample to the target device."""
+        return DepthNormalSample(
+            render_input=self.render_input.to(device),
+            image=self.image.to(device),
+            image_path=self.image_path,
+            camera_id=self.camera_id,
+            mask=None if self.mask is None else self.mask.to(device),
+            metadata=self.metadata,
+            depth=self.depth.to(device),
+            normals=self.normals.to(device),
+        )

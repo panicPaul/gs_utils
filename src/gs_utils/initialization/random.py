@@ -1,20 +1,19 @@
 """Random initialization strategies."""
 
-from gs_utils.config.models import InitializationConfig
 from gs_utils.contracts import Splat2DGS, Splat3DGS
-from gs_utils.contracts.scene import Scene
 from gs_utils.initialization.common import (
     InitContext,
     compute_knn_log_scales,
     init_common_from_points,
     random_points,
 )
+from gs_utils.initialization.config import InitializationConfig
 from gs_utils.initialization.registry import register_init_fn
 
 
 @register_init_fn("random", scene_type=Splat3DGS)
 def init_random_3dgs(
-    scene: Scene,
+    scene: Splat3DGS,
     config: InitializationConfig,
     context: InitContext,
 ) -> None:
@@ -38,7 +37,7 @@ def init_random_3dgs(
 
 @register_init_fn("random", scene_type=Splat2DGS)
 def init_random_2dgs(
-    scene: Scene,
+    scene: Splat2DGS,
     config: InitializationConfig,
     context: InitContext,
 ) -> None:

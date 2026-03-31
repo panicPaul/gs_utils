@@ -6,7 +6,7 @@ import torch
 from jaxtyping import Float
 from ppisp import PPISP, PPISPConfig
 
-from gs_utils.config.models import PPISPComponentConfig
+from gs_utils.render_components.config import PPISPComponentConfig
 
 
 class PPISPComponent(torch.nn.Module):

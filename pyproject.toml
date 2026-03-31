@@ -26,6 +26,7 @@ dependencies = [
     "piexif",
     "pydantic>=2.12.5,<3",
     "jaxtyping>=0.3.9,<0.4",
+    "gsplat>=1.5.3,<2",
 ]
 
 [tool.uv.sources]

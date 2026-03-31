@@ -5,10 +5,16 @@ from dataclasses import dataclass
 
 import torch
 
-from gs_utils.config.models import InitializationConfig
-from gs_utils.contracts.scene import Scene
+from gs_utils.contracts import (
+    SphericalHarmonics2DGS,
+    SphericalHarmonics3DGS,
+    Splat2DGS,
+    Splat3DGS,
+)
 from gs_utils.data.contract import PointCloud
-from gs_utils.utils import knn, rgb_to_sh
+from gs_utils.initialization.config import InitializationConfig
+from gs_utils.utils.neighbors import knn
+from gs_utils.utils.spherical_harmonics import rgb_to_sh
 
 
 @dataclass(slots=True, frozen=True)
@@ -20,6 +26,8 @@ class InitContext:
 
 
 InitFn = Callable[[Scene, InitializationConfig, InitContext], None]
+InitScene = Splat3DGS | Splat2DGS
+InitFn = Callable[[InitScene, InitializationConfig, InitContext], None]
 
 
 def random_points(
@@ -34,7 +42,7 @@ def random_quats(count: int, device: torch.device) -> torch.Tensor:
     return torch.rand((count, 4), device=device)
 
 
-def load_checkpoint_into_scene(scene: Scene, path: str) -> None:
+def load_checkpoint_into_scene(scene: InitScene, path: str) -> None:
     """Load a checkpoint state dict into a scene module."""
     checkpoint = torch.load(path, map_location=next(scene.parameters()).device)
     state_dict = checkpoint.get("scene", checkpoint)
@@ -51,19 +59,34 @@ def require_point_cloud(point_cloud: PointCloud | None) -> PointCloud:
 
 
 def init_common_from_points(
-    scene: Scene,
+    scene: Splat3DGS | Splat2DGS,
     points: torch.Tensor,
     colors: torch.Tensor | None,
     config: InitializationConfig,
 ) -> None:
     """Initialize the shared scene parameters from point and color inputs."""
     scene.means.data = points
-    scene.opacities.data.fill_(torch.logit(torch.tensor(config.init_opacity)))
-    scene.quats.data = random_quats(points.shape[0], points.device)
-    if colors is not None and hasattr(scene, "sh0"):
-        scene.sh0.data = rgb_to_sh(colors)
-    if hasattr(scene, "shN"):
-        scene.shN.data.zero_()
+    scene.logit_opacities.data.fill_(
+        torch.logit(
+            torch.tensor(
+                config.init_opacity,
+                device=scene.means.device,
+                dtype=scene.means.dtype,
+            )
+        )
+    )
+    scene.unnormalized_quats.data = random_quats(
+        points.shape[0],
+        points.device,
+    )
+    if colors is not None and isinstance(
+        scene, SphericalHarmonics3DGS | SphericalHarmonics2DGS
+    ):
+        scene.sh_0.data = rgb_to_sh(colors).unsqueeze(1).to(
+            device=scene.sh_0.device,
+            dtype=scene.sh_0.dtype,
+        )
+        scene.sh_N.data.zero_()
 
 
 def point_cloud_inputs(

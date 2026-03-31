@@ -1,12 +1,12 @@
 """Public initialization dispatch helpers."""
 
-from gs_utils.config.models import InitializationConfig
 from gs_utils.contracts.scene import Scene
 from gs_utils.data.contract import PointCloud
 from gs_utils.initialization import checkpoint as _checkpoint  # noqa: F401
 from gs_utils.initialization import point_cloud as _point_cloud  # noqa: F401
 from gs_utils.initialization import random as _random  # noqa: F401
 from gs_utils.initialization.common import InitContext
+from gs_utils.initialization.config import InitializationConfig
 from gs_utils.initialization.registry import INIT_FNS
 
 

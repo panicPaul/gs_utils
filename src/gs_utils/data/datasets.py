@@ -9,12 +9,20 @@ import numpy as np
 import torch
 from PIL import Image
 from torch.nn import functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 
-from gs_utils.config.models import DatasetConfig, DataSourceConfig
+from gs_utils.contracts import RenderInput
 from gs_utils.data.colmap.parser import ColmapParser
-from gs_utils.data.contract import DataSample, ParsedScene, PointCloud
-from gs_utils.utils import get_numpy_rng
+from gs_utils.data.config import DatasetConfig, DataSourceConfig
+from gs_utils.data.contract import (
+    DataSample,
+    DepthNormalSample,
+    DepthSample,
+    NormalSample,
+    ParsedScene,
+    PointCloud,
+)
+from gs_utils.utils.random import get_numpy_rng
 
 
 def _resize_image(
@@ -281,6 +289,137 @@ def _split_indices(num_images: int, split: str, test_every: int) -> list[int]:
     if split == "all":
         return indices.tolist()
     raise ValueError(f"Unsupported split: {split}")
+
+
+def collate_render_inputs(render_inputs: list[RenderInput]) -> RenderInput:
+    """Collate render inputs into a single batched render input."""
+    reference_render_input = render_inputs[0]
+    if any(
+        render_input.width != reference_render_input.width
+        or render_input.height != reference_render_input.height
+        for render_input in render_inputs[1:]
+    ):
+        raise ValueError(
+            "All render inputs in a batch must share width and height."
+        )
+
+    if reference_render_input.intrinsics is not None:
+        intrinsics = torch.stack(
+            [
+                render_input.get_intrinsics()
+                for render_input in render_inputs
+            ],
+            dim=0,
+        )
+        fov = None
+    else:
+        intrinsics = None
+        fov = torch.stack(
+            [render_input.get_fov() for render_input in render_inputs],
+            dim=0,
+        )
+
+    background = None
+    if reference_render_input.background is not None:
+        background = torch.stack(
+            [
+                render_input.background
+                for render_input in render_inputs
+                if render_input.background is not None
+            ],
+            dim=0,
+        )
+
+    return RenderInput(
+        cam_to_world=torch.stack(
+            [render_input.cam_to_world for render_input in render_inputs],
+            dim=0,
+        ),
+        width=reference_render_input.width,
+        height=reference_render_input.height,
+        intrinsics=intrinsics,
+        fov=fov,
+        render_mode=reference_render_input.render_mode,
+        background=background,
+        metadata={
+            "batched_metadata": [
+                render_input.metadata for render_input in render_inputs
+            ]
+        },
+    )
+
+
+def collate_data_samples(batch: list[DataSample]) -> DataSample:
+    """Collate typed dataset samples into a batched sample."""
+    reference_sample = batch[0]
+    sample_kwargs = {
+        "render_input": collate_render_inputs(
+            [sample.render_input for sample in batch]
+        ),
+        "image": torch.stack([sample.image for sample in batch], dim=0),
+        "image_path": None,
+        "camera_id": None,
+        "mask": (
+            None
+            if reference_sample.mask is None
+            else torch.stack(
+                [
+                    sample.mask
+                    for sample in batch
+                    if sample.mask is not None
+                ],
+                dim=0,
+            )
+        ),
+        "metadata": {
+            "batch_metadata": [sample.metadata for sample in batch],
+            "image_paths": [sample.image_path for sample in batch],
+            "camera_ids": [sample.camera_id for sample in batch],
+        },
+    }
+    if isinstance(reference_sample, DepthNormalSample):
+        return DepthNormalSample(
+            **sample_kwargs,
+            depth=torch.stack([sample.depth for sample in batch], dim=0),
+            normals=torch.stack(
+                [sample.normals for sample in batch],
+                dim=0,
+            ),
+        )
+    if isinstance(reference_sample, DepthSample):
+        return DepthSample(
+            **sample_kwargs,
+            depth=torch.stack([sample.depth for sample in batch], dim=0),
+        )
+    if isinstance(reference_sample, NormalSample):
+        return NormalSample(
+            **sample_kwargs,
+            normals=torch.stack(
+                [sample.normals for sample in batch],
+                dim=0,
+            ),
+        )
+    return DataSample(**sample_kwargs)
+
+
+def build_dataloader(
+    dataset: ParsedSceneDataset,
+    batch_size: int,
+    shuffle: bool,
+    num_workers: int,
+    pin_memory: bool,
+    persistent_workers: bool,
+) -> DataLoader:
+    """Build a dataloader for typed scene samples."""
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers and num_workers > 0,
+        collate_fn=collate_data_samples,
+    )
 
 
 def build_dataset(

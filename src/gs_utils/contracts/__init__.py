@@ -6,6 +6,9 @@ from gs_utils.contracts.capabilities import (
     RendersAlpha,
     RendersDepth,
     RendersNormals,
+    RendersRGB,
+    SphericalHarmonics2DGS,
+    SphericalHarmonics3DGS,
     Splat2DGS,
     Splat3DGS,
 )
@@ -21,7 +24,10 @@ __all__ = [
     "RendersAlpha",
     "RendersDepth",
     "RendersNormals",
+    "RendersRGB",
     "Scene",
+    "SphericalHarmonics2DGS",
+    "SphericalHarmonics3DGS",
     "Splat2DGS",
     "Splat3DGS",
 ]

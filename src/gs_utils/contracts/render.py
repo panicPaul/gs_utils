@@ -1,6 +1,6 @@
 """Typed render requests and outputs shared across scenes and viewers."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Any
 
@@ -84,12 +84,6 @@ class RenderInput:
     render_mode: RenderMode = RenderMode.RGB
     background: Float[torch.Tensor, "3"] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    _cached_intrinsics: Float[torch.Tensor, "... 3 3"] | None = field(
-        default=None, init=False, repr=False, compare=False
-    )
-    _cached_fov: torch.Tensor | None = field(
-        default=None, init=False, repr=False, compare=False
-    )
 
     def __post_init__(self) -> None:
         has_intrinsics = self.intrinsics is not None
@@ -105,8 +99,6 @@ class RenderInput:
         """Return intrinsics, computing them lazily from the vertical FOV if needed."""
         if self.intrinsics is not None:
             return self.intrinsics
-        if self._cached_intrinsics is not None:
-            return self._cached_intrinsics
 
         vertical_field_of_view = self.get_fov()
         focal_length = (
@@ -122,7 +114,6 @@ class RenderInput:
         intrinsics[..., 0, 2] = self.width / 2.0
         intrinsics[..., 1, 2] = self.height / 2.0
         intrinsics[..., 2, 2] = 1.0
-        object.__setattr__(self, "_cached_intrinsics", intrinsics)
         return intrinsics
 
     def get_fov(self) -> torch.Tensor:
@@ -130,24 +121,16 @@ class RenderInput:
         if self.fov is not None:
             if isinstance(self.fov, torch.Tensor):
                 return self.fov
-            if self._cached_fov is None:
-                object.__setattr__(
-                    self,
-                    "_cached_fov",
-                    torch.tensor(
-                        self.fov,
-                        dtype=self.cam_to_world.dtype,
-                        device=self.cam_to_world.device,
-                    ),
-                )
-            return self._cached_fov
-        if self._cached_fov is not None:
-            return self._cached_fov
+            return torch.tensor(
+                self.fov,
+                dtype=self.cam_to_world.dtype,
+                device=self.cam_to_world.device,
+            )
 
         intrinsics_matrix = self.intrinsics
         if intrinsics_matrix is None:
             raise ValueError("RenderInput requires intrinsics or fov.")
-        vertical_field_of_view = 2.0 * torch.atan(
+        return 2.0 * torch.atan(
             torch.tensor(
                 self.height,
                 dtype=intrinsics_matrix.dtype,
@@ -155,8 +138,32 @@ class RenderInput:
             )
             / (2.0 * intrinsics_matrix[..., 1, 1])
         )
-        object.__setattr__(self, "_cached_fov", vertical_field_of_view)
-        return vertical_field_of_view
+
+    def to(self, device: torch.device) -> "RenderInput":
+        """Move tensor fields in the render input to the target device."""
+        return replace(
+            self,
+            cam_to_world=self.cam_to_world.to(device),
+            intrinsics=(
+                None
+                if self.intrinsics is None
+                else self.intrinsics.to(device)
+            ),
+            fov=(
+                None
+                if self.fov is None
+                else (
+                    self.fov.to(device)
+                    if isinstance(self.fov, torch.Tensor)
+                    else self.fov
+                )
+            ),
+            background=(
+                None
+                if self.background is None
+                else self.background.to(device)
+            ),
+        )
 
 
 @dataclass(slots=True)
@@ -167,5 +174,4 @@ class RenderOutput:
     depth: Float[torch.Tensor, "height width 1"] | None = None
     normals: Float[torch.Tensor, "height width 3"] | None = None
     alpha: Float[torch.Tensor, "height width 1"] | None = None
-    aux: dict[str, torch.Tensor] = field(default_factory=dict)
-    stats: dict[str, Any] = field(default_factory=dict)
+    aux: dict[str, Any] = field(default_factory=dict)

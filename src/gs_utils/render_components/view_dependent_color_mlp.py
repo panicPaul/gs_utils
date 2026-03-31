@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from jaxtyping import Float, Int
 
-from gs_utils.config.models import ViewDependentColorMLPConfig
+from gs_utils.render_components.config import ViewDependentColorMLPConfig
 
 
 class ViewDependentColorMLP(torch.nn.Module):
