@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 
 import torch
 import tyro
-from sympy.assumptions.handlers.calculus import _
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.image import (
     LearnedPerceptualImagePatchSimilarity,

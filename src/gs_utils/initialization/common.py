@@ -24,6 +24,7 @@ class InitContext:
     point_cloud: PointCloud | None = None
     scene_scale: float = 1.0
 
+
 InitScene = Splat3DGS | Splat2DGS
 InitFn = Callable[[InitScene, InitializationConfig, InitContext], None]
 
