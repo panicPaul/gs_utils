@@ -1,21 +1,20 @@
-"""Viewer base classes and default extensions."""
+"""Default viewer extensions."""
 
-from gs_utils.viewer.extensions import (
+from gs_utils.viewer.extensions.alpha import (
     AlphaViewer,
     AlphaViewerRenderState,
+)
+from gs_utils.viewer.extensions.depth import (
     DepthViewer,
     DepthViewerRenderState,
+)
+from gs_utils.viewer.extensions.geometry import (
     GeometryViewer,
     GeometryViewerRenderState,
+)
+from gs_utils.viewer.extensions.normals import (
     NormalsViewer,
     NormalsViewerRenderState,
-)
-from gs_utils.viewer.host import Viewer, ViewerRenderState
-from gs_utils.viewer.ply_viewer import (
-    GsplatPlyScene,
-    GsplatPlyViewer,
-    PlyViewerRenderState,
-    ViewPlyCommand,
 )
 
 __all__ = [
@@ -25,12 +24,6 @@ __all__ = [
     "DepthViewerRenderState",
     "GeometryViewer",
     "GeometryViewerRenderState",
-    "GsplatPlyScene",
-    "GsplatPlyViewer",
     "NormalsViewer",
     "NormalsViewerRenderState",
-    "PlyViewerRenderState",
-    "ViewPlyCommand",
-    "Viewer",
-    "ViewerRenderState",
 ]

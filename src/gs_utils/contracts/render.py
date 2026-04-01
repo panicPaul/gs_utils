@@ -170,4 +170,4 @@ class RenderOutput:
     depth: Float[torch.Tensor, "height width 1"] | None = None
     normals: Float[torch.Tensor, "height width 3"] | None = None
     alpha: Float[torch.Tensor, "height width 1"] | None = None
-    aux: dict[str, Any] = field(default_factory=dict)
+    aux: Any = field(default_factory=dict)

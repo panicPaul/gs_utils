@@ -102,6 +102,11 @@ class Vanilla3DGS(
         self.logit_opacities = nn.Parameter(torch.empty(0))
         self.densification_state: Vanilla3DGSDensificationState | None = None
 
+    @property
+    def colors(self) -> Float[torch.Tensor, "num_splats 3"]:
+        """Return RGB colors derived from the zeroth SH band."""
+        return self.sh_0.squeeze(1)
+
     # <------------> Initialization <------------>
 
     def initialize_densification(

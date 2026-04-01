@@ -58,7 +58,12 @@ class Scene(
     def load(cls, path: Path | str) -> "Scene":
         """Load the scene from disk."""
         path = Path(path)
-        state_dict = torch.load(path)
+        checkpoint = torch.load(path)
+        state_dict = (
+            checkpoint["scene"]
+            if isinstance(checkpoint, dict) and "scene" in checkpoint
+            else checkpoint
+        )
         instance = cls()
         instance.load_state_dict(state_dict)
         return instance
